@@ -21,7 +21,7 @@ BQ_BUCKET="ecommerce_staging_bucket"
 
 
 # Postgres config variables
-PG_CONN_ID="my_pg_conn"
+PG_CONN_ID="source_db_conn"
 PG_SCHEMA="capstone_project"
 PG_TABLE= ["olist_customers_dataset", 
            "olist_geolocation_dataset", 
@@ -148,7 +148,7 @@ start = EmptyOperator(
     dag=dag)
 
 postgres_data_to_gcs = PostgresToGCSOperator(
-    task_id = 'postgres_sales_to_gcs',
+    task_id = 'postgres_to_gcs',
     sql = f'SELECT * FROM "{PG_SCHEMA}"."{table}";',
     bucket = BQ_BUCKET,
     filename = [CSV_FILENAME1, 
@@ -170,7 +170,7 @@ postgres_data_to_gcs = PostgresToGCSOperator(
 )
 
 bq_load_csv = GCSToBigQueryOperator(
-    task_id = 'bq_sales_load_csv',
+    task_id = 'bq_load_csv',
     bucket = BQ_BUCKET,
     source_objects = [CSV_FILENAME1, CSV_FILENAME2, CSV_FILENAME3, CSV_FILENAME4, CSV_FILENAME5, CSV_FILENAME6, CSV_FILENAME7, CSV_FILENAME8, CSV_FILENAME9],
     destination_project_dataset_table = f"{BQ_PROJECT}.{BQ_DATASET}.{BQ_TABLE1}",
