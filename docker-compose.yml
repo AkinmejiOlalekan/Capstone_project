@@ -62,8 +62,8 @@ services:
       - "5434:5432"
     volumes:
       - ./pg_data:/var/lib/postgresql/data
-      # - ./data:/data
-      # - ./infra_setup/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./data:/data
+      - ./infra_setup/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   airflow-webserver:
     <<: *airflow-common
