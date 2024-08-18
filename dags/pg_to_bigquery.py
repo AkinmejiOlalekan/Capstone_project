@@ -169,7 +169,7 @@ postgres_data_to_gcs = PostgresToGCSOperator(
     dag = dag
 )
 
-bq_sales_load_csv = GCSToBigQueryOperator(
+bq_load_csv = GCSToBigQueryOperator(
     task_id = 'bq_sales_load_csv',
     bucket = BQ_BUCKET,
     source_objects = [CSV_FILENAME1, CSV_FILENAME2, CSV_FILENAME3, CSV_FILENAME4, CSV_FILENAME5, CSV_FILENAME6, CSV_FILENAME7, CSV_FILENAME8, CSV_FILENAME9],
