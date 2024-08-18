@@ -188,4 +188,4 @@ end = EmptyOperator(
 
 # Define task dependencies
 
-start >> postgres_data_to_gcs >> bq_sales_load_csv >> end
+start >> postgres_data_to_gcs >> bq_load_csv >> end
