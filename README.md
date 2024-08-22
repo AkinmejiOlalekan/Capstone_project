@@ -2,7 +2,7 @@
 # End-to-End Data Pipeline with ETL, Orchestration, and Data Transformation
 
 ## Project Overview
-This my Capstone project at AltSchool Africa for my Diploma Data Engineering course. This project involves developing an end-to-end ETL (Extract, Transform, Load) process using a dataset from Kaggle to help data end-users answer analytical questions. The project showcases the application of various data engineering tools and techniques, including:
+This is my Capstone project at AltSchool Africa for my Diploma Data Engineering course. This project involves developing an end-to-end ETL (Extract, Transform, Load) process using a dataset from Kaggle to help data end-users answer analytical questions. The project showcases the application of various data engineering tools and techniques, including:
 
 - PostgreSQL for data storage
 - Docker and Docker Compose for environment setup
