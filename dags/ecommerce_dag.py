@@ -33,15 +33,6 @@ PG_TABLE= ["olist_customers_dataset",
            "olist_sellers_dataset", 
            "product_category_name_translation"]
 
-CSV_FILENAME1='olist_customers_dataset' + datetime.now().strftime('%Y-%m-%d') + '.csv'
-CSV_FILENAME2='olist_geolocation_dataset' + datetime.now().strftime('%Y-%m-%d') + '.csv'
-CSV_FILENAME3='olist_order_items_dataset' + datetime.now().strftime('%Y-%m-%d') + '.csv'
-CSV_FILENAME4='olist_order_payments_dataset' + datetime.now().strftime('%Y-%m-%d') + '.csv'
-CSV_FILENAME5='olist_order_reviews_dataset' + datetime.now().strftime('%Y-%m-%d') + '.csv'
-CSV_FILENAME6='olist_orders_dataset' + datetime.now().strftime('%Y-%m-%d') + '.csv'
-CSV_FILENAME7='olist_products_dataset' + datetime.now().strftime('%Y-%m-%d') + '.csv'
-CSV_FILENAME8='olist_sellers_dataset' + datetime.now().strftime('%Y-%m-%d') + '.csv'
-CSV_FILENAME9='product_category_name_translation' + datetime.now().strftime('%Y-%m-%d') + '.csv'
 
 # my_var = Variable.get("my_variable_key", default_var = "default_value")
 
@@ -71,8 +62,8 @@ schemas = {
 
         "olist_geolocation_dataset": [
             {"name": "geolocation_zip_code_prefix", "type": "INT64", "mode": "REQUIRED"},
-            {"name": "geolocation_lat", "type": "NUMERIC", "mode": "NULLABLE"},
-            {"name": "geolocation_lng", "type": "NUMERIC", "mode": "NULLABLE"},
+            {"name": "geolocation_lat", "type": "FLOAT", "mode": "NULLABLE"},
+            {"name": "geolocation_lng", "type": "FLOAT", "mode": "NULLABLE"},
             {"name": "geolocation_city", "type": "STRING", "mode": "REQUIRED"},
             {"name": "geolocation_state", "type": "STRING", "mode": "REQUIRED"}],
 
@@ -93,13 +84,13 @@ schemas = {
             {"name": "payment_value", "type": "NUMERIC", "mode": "REQUIRED"}],
 
         "olist_order_reviews_dataset": [
-            {"name": "review_id", "type": "STRING", "mode": "REQUIRED"},
-            {"name": "order_id", "type": "STRING", "mode": "REQUIRED"},
-            {"name": "review_score", "type": "INT64", "mode": "REQUIRED"},
+            {"name": "review_id", "type": "STRING", "mode": "NULLABLE"},
+            {"name": "order_id", "type": "STRING", "mode": "NULLABLE"},
+            {"name": "review_score", "type": "INT64", "mode": "NULLABLE"},
             {"name": "review_comment_title", "type": "STRING", "mode": "NULLABLE"},
             {"name": "review_comment_message", "type": "STRING", "mode": "NULLABLE"},
-            {"name": "review_creation_date", "type": "TIMESTAMP", "mode": "REQUIRED"},
-            {"name": "review_answer_timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"}],
+            {"name": "review_creation_date", "type": "TIMESTAMP", "mode": "NULLABLE"},
+            {"name": "review_answer_timestamp", "type": "TIMESTAMP", "mode": "NULLABLE"}],
 
         "olist_orders_dataset": [
             {"name": "order_id", "type": "STRING", "mode": "REQUIRED"},
@@ -137,55 +128,52 @@ schemas = {
 
 for table in PG_TABLE:
     schema = schemas.get(table)
-    logging.info(f"Table extraction begin from the sorce database: {table}")
+    filename = table + datetime.now().strftime('%Y-%m-%d') + '.csv'
+    logging.info(f"Table extraction begin from the source database: {table}")
     if schema is None:
         logging.error(f"No such schema: {table}")
         raise ValueError(f"No such schema: {table}")
 
+    start = EmptyOperator(
+        task_id=f'start_dag_{table}',
+        dag=dag
+    )
 
-start = EmptyOperator(
-    task_id='start',
-    dag=dag)
+    postgres_data_to_gcs = PostgresToGCSOperator(
+        task_id=f'postgres_to_gcs_{table}',
+        sql=f'SELECT * FROM "{PG_SCHEMA}"."{table}";',
+        bucket=BQ_BUCKET,
+        filename=filename,
+        export_format='CSV',
+        postgres_conn_id=PG_CONN_ID,
+        field_delimiter=',',
+        gzip=False,
+        task_concurrency=1,
+        gcp_conn_id=BQ_CONN_ID,
+        dag=dag
+    )
 
-postgres_data_to_gcs = PostgresToGCSOperator(
-    task_id = 'postgres_to_gcs',
-    sql = f'SELECT * FROM "{PG_SCHEMA}"."{table}";',
-    bucket = BQ_BUCKET,
-    filename = [CSV_FILENAME1, 
-                CSV_FILENAME2, 
-                CSV_FILENAME3, 
-                CSV_FILENAME4, 
-                CSV_FILENAME5, 
-                CSV_FILENAME6, 
-                CSV_FILENAME7, 
-                CSV_FILENAME8, 
-                CSV_FILENAME9],
-    export_format = 'CSV', # You can change the export format as needed
-    postgres_conn_id = PG_CONN_ID, # Set your postgres connection ID
-    field_delimiter = ',',
-    gzip = False, # Set to True if you want to compress the output file
-    task_concurrency = 1, #Optional, adjust concurrency as needed
-    gcp_conn_id = BQ_CONN_ID,
-    dag = dag
-)
+    bq_load_csv = GCSToBigQueryOperator(
+        task_id=f'bq_load_csv_{table}',
+        bucket=BQ_BUCKET,
+        source_objects=[filename],
+        destination_project_dataset_table=f"{BQ_PROJECT}.{BQ_DATASET}.{table}",
+        schema_fields=schema,
+        create_disposition='CREATE_IF_NEEDED',
+        write_disposition="WRITE_TRUNCATE",
+        gcp_conn_id=BQ_CONN_ID,
+        allow_jagged_rows=True,
+        skip_leading_rows=1,
+        allow_quoted_newlines=True,
+        ignore_unknown_values=True,
+        max_bad_records=100000, # you can increase this part if there are still a lot of bad records
+        dag=dag
+    )
 
-bq_load_csv = GCSToBigQueryOperator(
-    task_id = 'bq_load_csv',
-    bucket = BQ_BUCKET,
-    source_objects = [CSV_FILENAME1, CSV_FILENAME2, CSV_FILENAME3, CSV_FILENAME4, CSV_FILENAME5, CSV_FILENAME6, CSV_FILENAME7, CSV_FILENAME8, CSV_FILENAME9],
-    destination_project_dataset_table = f"{BQ_PROJECT}.{BQ_DATASET}.{BQ_TABLE1}",
-    schema_fields = schema,
-    create_disposition = 'CREATE_IF_NEEDED',
-    write_disposition = "WRITE_TRUNCATE",
-    gcp_conn_id = BQ_CONN_ID,
-    allow_jagged_rows = True, # To allow data with missing rows copy GCS
-    dag = dag
-)
+    end = EmptyOperator(
+        task_id=f'end_dag_{table}',
+        dag=dag
+    )
 
-end = EmptyOperator(
-    task_id='end',
-    dag=dag)
-
-# Define task dependencies
-
-start >> postgres_data_to_gcs >> bq_load_csv >> end
+    # Define task dependencies
+    start >> postgres_data_to_gcs >> bq_load_csv >> end
