@@ -1,0 +1,10 @@
+.env
+config
+__pycache__
+logs
+plugins
+venv
+pg_data
+postgres-db-volume
+profiles.yml
+example
